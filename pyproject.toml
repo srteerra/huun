@@ -1,0 +1,32 @@
+[project]
+name = "huun"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Angel Lopez",email = "srterradev@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi (>=0.136.1,<0.137.0)",
+    "uvicorn (>=0.46.0,<0.47.0)",
+    "sqlmodel (>=0.0.38,<0.0.39)",
+    "asyncpg (>=0.31.0,<0.32.0)",
+    "alembic (>=1.18.4,<2.0.0)",
+    "anthropic (>=0.97.0,<0.98.0)",
+    "python-dotenv (>=1.2.2,<2.0.0)",
+    "psycopg2-binary (>=2.9.12,<3.0.0)",
+    "pydantic-settings (>=2.14.0,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.0.3,<10.0.0)",
+    "pytest-asyncio (>=1.3.0,<2.0.0)",
+    "httpx (>=0.28.1,<0.29.0)"
+]

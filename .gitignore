@@ -4,3 +4,8 @@ __pycache__/
 .pytest_cache/
 .venv/
 .idea/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+*.egg-info/

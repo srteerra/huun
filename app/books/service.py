@@ -1,10 +1,10 @@
 from typing import Optional
 
-from app.ai.service import generate_blueprint, generate_partition, validate_partition
-from app.books.models import Book, Partition
+from app.ai.service import generate_chapter, validate_chapter
+from app.books.models import Book, Chapter
 from app.books.repository import BookRepository
+from app.books.schemas import StorySettings
 
-BUFFER_SIZE = 2
 _generating: set[str] = set()
 
 
@@ -13,82 +13,86 @@ class BookService:
         self.repo = repo
 
     async def create_book(
-            self, genre: str, user_prompt: Optional[str], total_partitions: int
+            self, genre: str, user_prompt: Optional[str], total_chapters: int, settings: StorySettings,
+            title: Optional[str] = None,
     ) -> Book:
-        return await self.repo.create(genre, user_prompt, total_partitions)
+        return await self.repo.create(genre, user_prompt, total_chapters, settings.model_dump(), title)
 
     async def build_blueprint(self, book_id: str, genre: str, user_prompt: Optional[str]) -> None:
+        from app.ai.service import generate_blueprint
         try:
             book = await self.repo.get_by_id(book_id)
-            blueprint = await generate_blueprint(genre, user_prompt, book.total_partitions)
+            blueprint = await generate_blueprint(genre, user_prompt, book.total_chapters, book.settings)
             await self.repo.save_blueprint(book_id, blueprint)
             await self.repo.save_state(book_id, {
                 "plotFacts": [],
                 "characterStates": {},
                 "runningContext": [],
-                "currentPartition": 0,
+                "currentChapter": 0,
             })
         except Exception as e:
             print(f"[ERROR] Blueprint generation failed for book {book_id}: {e}")
             await self.repo.mark_error(book_id)
 
-    async def generate_next_partition(self, book_id: str) -> Partition:
+    async def generate_next_chapter(self, book_id: str) -> Chapter:
         book = await self.repo.get_by_id(book_id)
 
         if book.status not in ("ready", "generating", "completed"):
             raise ValueError(f"El libro no está listo (status: {book.status})")
 
-        next_num = book.current_partition + 1
-        if next_num > book.total_partitions:
+        next_num = book.current_chapter + 1
+        if next_num > book.total_chapters:
             raise ValueError("El libro ya está completo")
 
-        existing = await self.repo.get_partition(book_id, next_num)
+        existing = await self.repo.get_chapter(book_id, next_num)
         if existing:
             return existing
 
         await self.repo.update_status(book_id, "generating")
 
-        result = await generate_partition(next_num, book.blueprint, book.state)
-        text = result["partitionText"]
-        summary = result["partitionSummary"]
+        result = await generate_chapter(next_num, book.blueprint, book.state, book.settings)
+        title = result.get("chapterTitle")
+        text = result["chapterText"]
+        summary = result["chapterSummary"]
         char_updates = result.get("characterStateUpdates", {})
 
-        validation = await validate_partition(text, book.state)
+        validation = await validate_chapter(text, book.state)
         if validation.get("hasContradiction"):
-            result = await generate_partition(next_num, book.blueprint, book.state)
-            text = result["partitionText"]
-            summary = result["partitionSummary"]
+            result = await generate_chapter(next_num, book.blueprint, book.state, book.settings)
+            title = result.get("chapterTitle")
+            text = result["chapterText"]
+            summary = result["chapterSummary"]
             char_updates = result.get("characterStateUpdates", {})
 
-        partition = await self.repo.save_partition(book_id, next_num, text, summary)
+        chapter = await self.repo.save_chapter(book_id, next_num, title, text, summary)
 
         new_state = dict(book.state)
         new_state["plotFacts"] = book.state.get("plotFacts", []) + [
-            {"partition": next_num, "fact": summary}
+            {"chapter": next_num, "fact": summary}
         ]
         new_state["runningContext"] = book.state.get("runningContext", []) + [
-            {"partition": next_num, "summary": summary}
+            {"chapter": next_num, "summary": summary}
         ]
         new_state["characterStates"] = {**book.state.get("characterStates", {}), **char_updates}
-        new_state["currentPartition"] = next_num
+        new_state["currentChapter"] = next_num
         new_state["lastClosingText"] = text[-200:]
         await self.repo.save_state(book_id, new_state)
 
-        final_status = "completed" if next_num >= book.total_partitions else "generating"
+        final_status = "completed" if next_num >= book.total_chapters else "generating"
         await self.repo.update_status(book_id, final_status)
 
-        return partition
+        return chapter
 
-    async def get_partition(self, book_id: str, number: int) -> Optional[Partition]:
-        return await self.repo.get_partition(book_id, number)
+    async def get_chapter(self, book_id: str, number: int) -> Optional[Chapter]:
+        return await self.repo.get_chapter(book_id, number)
 
-    async def get_partitions(self, book_id: str, limit: int, offset: int) -> list[Partition]:
-        return await self.repo.get_partitions(book_id, limit, offset)
+    async def get_chapters(self, book_id: str, limit: int, offset: int) -> list[Chapter]:
+        return await self.repo.get_chapters(book_id, limit, offset)
 
-    async def update_reading_partition(self, book_id: str, number: int) -> None:
+    async def update_reading_chapter(self, book_id: str, number: int) -> None:
         book = await self.repo.get_by_id(book_id)
         if not book:
             raise ValueError("Libro no encontrado")
-        if number < 1 or number > book.current_partition:
-            raise ValueError(f"Partición {number} no existe aún")
-        await self.repo.update_reading_partition(book_id, number)
+        if number < 1 or number > book.current_chapter:
+            raise ValueError(f"Capítulo {number} no existe aún")
+        await self.repo.update_reading_chapter(book_id, number)

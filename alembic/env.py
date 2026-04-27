@@ -1,9 +1,9 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from sqlmodel import SQLModel
-from app.books.models import Book, Partition
 
 from logging.config import fileConfig
 
@@ -30,7 +30,8 @@ if config.config_file_name is not None:
 
 db_url = os.getenv("DATABASE_URL")
 if db_url:
-    config.set_main_option("sqlalchemy.url", db_url)
+    sync_url = db_url.replace("postgresql+asyncpg", "postgresql+psycopg2", 1)
+    config.set_main_option("sqlalchemy.url", sync_url)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

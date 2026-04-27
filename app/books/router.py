@@ -3,8 +3,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from app.books.dependencies import get_book_service
 from app.books.repository import BookRepository
 from app.books.schemas import (
-    InitBookRequest, BookResponse, PartitionResponse,
-    PartitionListResponse, UpdateReadingPartitionRequest,
+    InitBookRequest, BookResponse, ChapterResponse,
+    ChapterListResponse, UpdateReadingChapterRequest,
 )
 from app.books.service import BookService
 from app.database import AsyncSessionLocal
@@ -24,7 +24,7 @@ async def init_book(
         background_tasks: BackgroundTasks,
         service: BookService = Depends(get_book_service),
 ):
-    book = await service.create_book(body.genre, body.user_prompt, body.total_partitions)
+    book = await service.create_book(body.genre, body.user_prompt, body.total_chapters, body.settings, body.title)
     background_tasks.add_task(
         _run_blueprint_in_background, book.id, body.genre, body.user_prompt
     )
@@ -42,20 +42,20 @@ async def get_book(
     return BookResponse(**book.model_dump())
 
 
-@router.post("/{book_id}/partition", response_model=PartitionResponse)
-async def generate_partition(
+@router.post("/{book_id}/chapter", response_model=ChapterResponse)
+async def generate_chapter(
         book_id: str,
         service: BookService = Depends(get_book_service),
 ):
     try:
-        partition = await service.generate_next_partition(book_id)
+        chapter = await service.generate_next_chapter(book_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    return PartitionResponse(**partition.model_dump())
+    return ChapterResponse(**chapter.model_dump())
 
 
-@router.get("/{book_id}/partitions", response_model=PartitionListResponse)
-async def get_partitions(
+@router.get("/{book_id}/chapters", response_model=ChapterListResponse)
+async def get_chapters(
         book_id: str,
         limit: int = Query(default=20, ge=1, le=50),
         offset: int = Query(default=0, ge=0),
@@ -64,34 +64,34 @@ async def get_partitions(
     book = await service.repo.get_by_id(book_id)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
-    partitions = await service.get_partitions(book_id, limit, offset)
-    return PartitionListResponse(
-        partitions=[PartitionResponse(**p.model_dump()) for p in partitions],
-        total_generated=book.current_partition,
+    chapters = await service.get_chapters(book_id, limit, offset)
+    return ChapterListResponse(
+        chapters=[ChapterResponse(**c.model_dump()) for c in chapters],
+        total_generated=book.current_chapter,
         limit=limit,
         offset=offset,
     )
 
 
-@router.get("/{book_id}/partitions/{partition_number}", response_model=PartitionResponse)
-async def get_partition(
+@router.get("/{book_id}/chapters/{chapter_number}", response_model=ChapterResponse)
+async def get_chapter(
         book_id: str,
-        partition_number: int,
+        chapter_number: int,
         service: BookService = Depends(get_book_service),
 ):
-    partition = await service.get_partition(book_id, partition_number)
-    if not partition:
-        raise HTTPException(status_code=404, detail=f"Partición {partition_number} no existe aún")
-    return PartitionResponse(**partition.model_dump())
+    chapter = await service.get_chapter(book_id, chapter_number)
+    if not chapter:
+        raise HTTPException(status_code=404, detail=f"Capítulo {chapter_number} no existe aún")
+    return ChapterResponse(**chapter.model_dump())
 
 
 @router.patch("/{book_id}/reading-position", status_code=204)
 async def update_reading_position(
         book_id: str,
-        body: UpdateReadingPartitionRequest,
+        body: UpdateReadingChapterRequest,
         service: BookService = Depends(get_book_service),
 ):
     try:
-        await service.update_reading_partition(book_id, body.partition_number)
+        await service.update_reading_chapter(book_id, body.chapter_number)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

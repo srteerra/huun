@@ -5,12 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.books import router as books_router
 from app.config import settings
-from app.database import create_db_and_tables
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await create_db_and_tables()
     yield
 
 
@@ -19,8 +17,9 @@ app = FastAPI(title="Huun API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins.split(","),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 app.include_router(books_router)

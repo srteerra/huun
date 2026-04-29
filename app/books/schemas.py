@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 
 class StorySettings(BaseModel):
@@ -17,10 +17,30 @@ class StorySettings(BaseModel):
     words_per_chapter: Literal["short", "medium", "long"] = "medium"
 
 
+class TokenUsage(BaseModel):
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
+
+    @computed_field
+    @property
+    def total_tokens(self) -> int:
+        return self.input_tokens + self.output_tokens
+
+    def __add__(self, other: "TokenUsage") -> "TokenUsage":
+        return TokenUsage(
+            input_tokens=self.input_tokens + other.input_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+            cache_creation_input_tokens=self.cache_creation_input_tokens + other.cache_creation_input_tokens,
+            cache_read_input_tokens=self.cache_read_input_tokens + other.cache_read_input_tokens,
+        )
+
+
 class InitBookRequest(BaseModel):
     genre: str
-    user_prompt: Optional[str] = None
-    title: Optional[str] = None
+    user_prompt: str | None = None
+    title: str | None = None
     total_chapters: int = 20
     settings: StorySettings = StorySettings()
 
@@ -28,7 +48,7 @@ class InitBookRequest(BaseModel):
 class BookResponse(BaseModel):
     id: str
     genre: str
-    title: Optional[str]
+    title: str | None
     total_chapters: int
     current_chapter: int
     reading_chapter: int
@@ -36,7 +56,7 @@ class BookResponse(BaseModel):
     blueprint: dict
     state: dict
     settings: StorySettings
-    user_prompt: Optional[str]
+    user_prompt: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -45,10 +65,11 @@ class ChapterResponse(BaseModel):
     id: str
     book_id: str
     chapter_number: int
-    title: Optional[str]
+    title: str | None
     text: str
     summary: str
     created_at: datetime
+    usage: TokenUsage | None = None
 
 
 class ChapterListResponse(BaseModel):

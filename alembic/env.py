@@ -3,13 +3,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from sqlmodel import SQLModel
-
 from logging.config import fileConfig
 
 import sqlmodel.sql.sqltypes
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
+from sqlmodel import SQLModel
 
 from alembic import context
 
@@ -20,6 +18,7 @@ def render_item(type_, obj, autogen_context):
         autogen_context.imports.add("import sqlalchemy as sa")
         return "sa.String()"
     return False
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

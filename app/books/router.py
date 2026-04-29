@@ -1,10 +1,14 @@
+import anthropic
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
 from app.books.dependencies import get_book_service
 from app.books.repository import BookRepository
 from app.books.schemas import (
-    InitBookRequest, BookResponse, ChapterResponse,
-    ChapterListResponse, UpdateReadingChapterRequest,
+    BookResponse,
+    ChapterListResponse,
+    ChapterResponse,
+    InitBookRequest,
+    UpdateReadingChapterRequest,
 )
 from app.books.service import BookService
 from app.database import AsyncSessionLocal
@@ -24,10 +28,10 @@ async def init_book(
         background_tasks: BackgroundTasks,
         service: BookService = Depends(get_book_service),
 ):
-    book = await service.create_book(body.genre, body.user_prompt, body.total_chapters, body.settings, body.title)
-    background_tasks.add_task(
-        _run_blueprint_in_background, book.id, body.genre, body.user_prompt
+    book = await service.create_book(
+        body.genre, body.user_prompt, body.total_chapters, body.settings, body.title
     )
+    background_tasks.add_task(_run_blueprint_in_background, book.id, body.genre, body.user_prompt)
     return BookResponse(**book.model_dump())
 
 
@@ -48,10 +52,14 @@ async def generate_chapter(
         service: BookService = Depends(get_book_service),
 ):
     try:
-        chapter = await service.generate_next_chapter(book_id)
+        chapter, usage = await service.generate_next_chapter(book_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    return ChapterResponse(**chapter.model_dump())
+    except anthropic.RateLimitError:
+        raise HTTPException(status_code=429, detail="API rate limit reached, try again later")
+    except anthropic.APIStatusError as e:
+        raise HTTPException(status_code=502, detail=f"AI service error: {e.message}")
+    return ChapterResponse(**chapter.model_dump(), usage=usage)
 
 
 @router.get("/{book_id}/chapters", response_model=ChapterListResponse)

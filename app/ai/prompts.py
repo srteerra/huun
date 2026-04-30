@@ -48,6 +48,13 @@ _CONTENT_RATING = {
     "teen": "teen-appropriate — mild violence and mature themes permitted, no explicit content",
     "adult": "adult content permitted — mature themes, violence, and sexuality as the story demands",
 }
+_CHARACTER_INTRO_PACE = {
+    "immediate": "other characters appear or are mentioned from the very first scene of chapter one — the protagonist is never truly alone even at the opening",
+    "gradual": "introduce secondary characters progressively across the whole story — a few are mentioned early, more appear as chapters advance",
+    "after_first": "chapter one belongs entirely to the protagonist with no other characters present or mentioned; from chapter two onward, one or two characters begin to appear as the plot requires",
+    "late": "keep the protagonist isolated throughout most of the story — secondary characters only begin to appear or are referenced in the final quarter of the book",
+    "solo": "the protagonist is completely alone for the entire story — no other characters appear or are mentioned at any point; a true solitary narrative",
+}
 
 
 class CharacterBlueprint(BaseModel):
@@ -107,7 +114,8 @@ def settings_block(s: StorySettings) -> str:
 - World-building: {_WORLD_BUILDING[s.world_building]}
 - Prose style: {_PROSE_STYLE[s.prose_style]}
 - Content rating: {_CONTENT_RATING[s.content_rating]}
-- Chapter length: minimum {min_words} words per chapter"""
+- Chapter length: minimum {min_words} words per chapter
+- Character introduction pace: {_CHARACTER_INTRO_PACE[s.character_intro_pace]}"""
 
 
 def blueprint_user(settings: str, genre: str, total_chapters: int, user_prompt: str | None) -> str:

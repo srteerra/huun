@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select as sm_select
 
@@ -30,6 +31,13 @@ class BookRepository:
         await self.session.commit()
         await self.session.refresh(book)
         return book
+
+    async def list_books(self, limit: int, offset: int) -> tuple[list[Book], int]:
+        total = (await self.session.execute(sm_select(func.count()).select_from(Book))).scalar_one()
+        result = await self.session.execute(
+            sm_select(Book).order_by(Book.created_at.desc()).limit(limit).offset(offset)
+        )
+        return list(result.scalars().all()), total
 
     async def get_by_id(self, book_id: str) -> Book | None:
         result = await self.session.execute(sm_select(Book).where(Book.id == book_id))

@@ -15,6 +15,7 @@ class StorySettings(BaseModel):
     prose_style: Literal["literary", "commercial", "minimalist"] = "commercial"
     content_rating: Literal["family", "teen", "adult"] = "teen"
     words_per_chapter: Literal["short", "medium", "long"] = "medium"
+    character_intro_pace: Literal["immediate", "gradual", "after_first", "late", "solo"] = "gradual"
 
 
 class TokenUsage(BaseModel):
@@ -75,6 +76,13 @@ class ChapterResponse(BaseModel):
 class ChapterListResponse(BaseModel):
     chapters: list[ChapterResponse]
     total_generated: int
+    limit: int
+    offset: int
+
+
+class BookListResponse(BaseModel):
+    books: list[BookResponse]
+    total: int
     limit: int
     offset: int
 

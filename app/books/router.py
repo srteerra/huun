@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from app.books.dependencies import get_book_service
 from app.books.repository import BookRepository
 from app.books.schemas import (
+    BookListResponse,
     BookResponse,
     ChapterListResponse,
     ChapterResponse,
@@ -20,6 +21,21 @@ async def _run_blueprint_in_background(book_id: str, genre: str, user_prompt):
     async with AsyncSessionLocal() as session:
         service = BookService(BookRepository(session))
         await service.build_blueprint(book_id, genre, user_prompt)
+
+
+@router.get("", response_model=BookListResponse)
+async def list_books(
+        limit: int = Query(default=20, ge=1, le=50),
+        offset: int = Query(default=0, ge=0),
+        service: BookService = Depends(get_book_service),
+):
+    books, total = await service.repo.list_books(limit, offset)
+    return BookListResponse(
+        books=[BookResponse(**b.model_dump()) for b in books],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post("/init", response_model=BookResponse, status_code=202)
